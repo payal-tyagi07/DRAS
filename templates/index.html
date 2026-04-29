@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRAS | Emergency Relief Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-color: #f4f7f6; --brand-blue: #3182ce; --alert-red: #e53e3e; --safe-green: #38a169; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { display: flex; height: 100vh; background-color: var(--bg-color); color: #2d3748; }
+        .dashboard { width: 450px; background: #fff; box-shadow: 4px 0 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; padding: 2rem; z-index: 1000; overflow-y: auto; }
+        .header h1 { font-weight: 800; font-size: 1.8rem; color: var(--brand-blue); }
+        .step-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.2rem; margin-top: 1.5rem; transition: 0.3s; }
+        .step-card.active { border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2); }
+        .step-card.disabled { opacity: 0.5; pointer-events: none; }
+        input[type="range"] { width: 100%; margin: 10px 0; }
+        button { width: 100%; padding: 12px; background: var(--brand-blue); color: white; border: none; border-radius: 6px; font-weight: 600; margin-top: 1.5rem; cursor: pointer; }
+        .results-section { display: none; margin-top: 1.5rem; }
+        .result-item { background: #f7fafc; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.85rem; border-left: 4px solid var(--brand-blue);}
+        #map { flex-grow: 1; height: 100%; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header"><h1>DRAS</h1><p style="color:#718096; font-size:0.9rem;">Disaster Response Assistance System</p></div>
+        
+        <div class="step-card active" id="card-epi">
+            <b>1. Set Epicenter</b><br><span style="font-size: 0.85rem; color: #718096;">Click map to define origin.</span>
+            <input type="range" id="magnitude" min="3.0" max="9.0" step="0.5" value="6.0">
+        </div>
+
+        <div class="step-card disabled" id="card-user">
+            <b>2. Set Your Location</b><br><span style="font-size: 0.85rem; color: #718096;">Click map to drop your pin.</span>
+        </div>
+
+        <button id="btn-analyze" style="display:none;" onclick="runAnalysis()">Generate Relief Plan</button>
+
+        <div class="results-section" id="results">
+            <b>Response Analysis</b>
+            <div class="result-item" style="border-left-color: var(--safe-green); margin-top: 10px;">
+                <strong>Dynamic Safe Zones (DSU):</strong> <span id="dsu-count">0</span>
+            </div>
+            <div class="result-item" style="border-left-color: #ed8936;">
+                <strong>Route Hazard Score (Kadane):</strong> <span id="route-hazard">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map', {zoomControl: false}).setView([28.4089, 77.3178], 12);
+        L.control.zoom({position: 'topright'}).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        let epicenter = null, userLoc = null, mapLayers = [], state = 1;
+
+        const epiIcon = L.divIcon({className: '', html: '<div style="background:#e53e3e; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>'});
+        const userIcon = L.divIcon({className: '', html: '<div style="background:#3182ce; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>'});
+        const campIcon = L.divIcon({className: '', html: '<div style="background:white; width:14px; height:14px; border-radius:2px; border:3px solid #38a169;"></div>'});
+
+        // Show Camps on Startup
+        fetch('/api/get_fixed_centers').then(r => r.json()).then(data => {
+            data.data.forEach(c => L.marker([c.lat, c.lng], {icon: campIcon}).addTo(map).bindPopup(c.name));
+        });
+
+        map.on('click', e => {
+            if (state === 1) {
+                if(epicenter) map.removeLayer(epicenter);
+                epicenter = L.marker(e.latlng, {icon: epiIcon}).addTo(map);
+                document.getElementById('card-epi').classList.remove('active');
+                document.getElementById('card-user').classList.remove('disabled');
+                document.getElementById('card-user').classList.add('active');
+                state = 2;
+            } else if (state === 2 || state === 3) {
+                if(userLoc) map.removeLayer(userLoc);
+                userLoc = L.marker(e.latlng, {icon: userIcon}).addTo(map);
+                document.getElementById('card-user').classList.remove('active');
+                document.getElementById('btn-analyze').style.display = 'block';
+                state = 3;
+            }
+        });
+
+        async function runAnalysis() {
+            const btn = document.getElementById('btn-analyze');
+            btn.innerText = "Processing..."; mapLayers.forEach(l => map.removeLayer(l)); mapLayers = [];
+
+            const mag = document.getElementById('magnitude').value;
+            const epiLL = epicenter.getLatLng();
+
+            mapLayers.push(L.circle(epiLL, {color: 'transparent', fillColor: '#e53e3e', fillOpacity: 0.35, radius: mag * 800}).addTo(map));
+            mapLayers.push(L.circle(epiLL, {color: 'transparent', fillColor: '#ed8936', fillOpacity: 0.25, radius: mag * 1600}).addTo(map));
+            mapLayers.push(L.circle(epiLL, {color: 'transparent', fillColor: '#ecc94b', fillOpacity: 0.15, radius: mag * 2500}).addTo(map));
+
+            try {
+                const response = await fetch('/api/analyze_situation', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ epi_lat: epiLL.lat, epi_lng: epiLL.lng, user_lat: userLoc.getLatLng().lat, user_lng: userLoc.getLatLng().lng, magnitude: mag })
+                });
+                const result = await response.json();
+
+                if(result.status === 'success') {
+                    document.getElementById('results').style.display = 'block';
+                    document.getElementById('dsu-count').innerText = result.dsu_zones.length;
+                    document.getElementById('route-hazard').innerText = result.hazard_score;
+
+                    if(result.safest_route.length > 0) {
+                        let route = L.polyline(result.safest_route, { color: '#3182ce', weight: 6, dashArray: '8, 8' }).addTo(map);
+                        mapLayers.push(route); map.fitBounds(route.getBounds(), {padding: [50, 50]});
+                    }
+                } else alert("Error: " + result.message);
+            } catch (err) { alert("Critical Server Error"); }
+            btn.innerText = "Generate Relief Plan";
+        }
+    </script>
+</body>
+</html>
