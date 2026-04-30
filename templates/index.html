@@ -2,119 +2,889 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRAS | Emergency Relief Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>EMERGE | Multi‑Incident Emergency Response</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        :root { --bg-color: #f4f7f6; --brand-blue: #3182ce; --alert-red: #e53e3e; --safe-green: #38a169; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-        body { display: flex; height: 100vh; background-color: var(--bg-color); color: #2d3748; }
-        .dashboard { width: 450px; background: #fff; box-shadow: 4px 0 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; padding: 2rem; z-index: 1000; overflow-y: auto; }
-        .header h1 { font-weight: 800; font-size: 1.8rem; color: var(--brand-blue); }
-        .step-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.2rem; margin-top: 1.5rem; transition: 0.3s; }
-        .step-card.active { border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2); }
-        .step-card.disabled { opacity: 0.5; pointer-events: none; }
-        input[type="range"] { width: 100%; margin: 10px 0; }
-        button { width: 100%; padding: 12px; background: var(--brand-blue); color: white; border: none; border-radius: 6px; font-weight: 600; margin-top: 1.5rem; cursor: pointer; }
-        .results-section { display: none; margin-top: 1.5rem; }
-        .result-item { background: #f7fafc; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.85rem; border-left: 4px solid var(--brand-blue);}
-        #map { flex-grow: 1; height: 100%; }
-    </style>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap');
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        display: flex;
+        height: 100vh;
+        background: linear-gradient(145deg, #f9fafb 0%, #edeff2 100%);
+        font-family: 'Inter', sans-serif;
+        color: #1e293b;
+        overflow: hidden;
+    }
+
+    /* Custom scroll */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #e2e8f0;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #3b82f6;
+        border-radius: 10px;
+    }
+
+    /* Dashboard panel – glassmorphism light */
+    .dashboard {
+        width: 580px;
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(12px);
+        border-right: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.05);
+        overflow-y: auto;
+        padding: 1.8rem;
+        z-index: 1000;
+    }
+
+    /* Header gradient */
+    .header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        letter-spacing: -0.02em;
+    }
+    .header p {
+        color: #475569;
+        font-size: 0.85rem;
+        margin-top: 6px;
+        font-weight: 500;
+    }
+
+    /* Cards – light glass, huge shadow on hover */
+    .card {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(2px);
+        border-radius: 32px;
+        padding: 1.25rem;
+        margin-top: 1.25rem;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+    }
+    .card:hover {
+        border-color: #cbd5e1;
+        box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    /* Form elements – bright and friendly */
+    select, button, input {
+        padding: 10px 12px;
+        border-radius: 20px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #1e293b;
+        font-size: 0.9rem;
+        width: 100%;
+        margin-top: 8px;
+        transition: 0.2s;
+        font-weight: 500;
+    }
+    select:hover, input:hover {
+        border-color: #3b82f6;
+    }
+    select:focus, input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+    }
+
+    /* Buttons – colourful gradients, playful */
+    button {
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+        border: none;
+    }
+    button.primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+    }
+    button.primary:hover {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        transform: scale(0.98);
+        box-shadow: 0 6px 14px rgba(37,99,235,0.35);
+    }
+    button.secondary {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        box-shadow: 0 2px 6px rgba(5,150,105,0.25);
+    }
+    button.secondary:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        transform: scale(0.98);
+    }
+    button.warning {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+    }
+    button.warning:hover {
+        background: linear-gradient(135deg, #d97706, #b45309);
+        transform: scale(0.98);
+    }
+    button.info {
+        background: linear-gradient(135deg, #64748b, #475569);
+        color: white;
+    }
+    button.info:hover {
+        background: linear-gradient(135deg, #475569, #334155);
+        transform: scale(0.98);
+    }
+
+    /* Emergency numbers – colourful accent */
+    .emergency-numbers {
+        background: #fef3c7;
+        border-left: 5px solid #f59e0b;
+        border-radius: 20px;
+        padding: 12px;
+        font-size: 0.85rem;
+        margin: 12px 0;
+        color: #92400e;
+        font-weight: 600;
+    }
+    .emergency-numbers a {
+        color: #d97706;
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .emergency-numbers a:hover {
+        text-decoration: underline;
+    }
+
+    /* Hospital list – clean cards */
+    .hospital-list {
+        max-height: 270px;
+        overflow-y: auto;
+        margin-top: 10px;
+    }
+    .hospital-item {
+        background: #ffffff;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 24px;
+        border: 1px solid #e2e8f0;
+        transition: 0.2s;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .hospital-item:hover {
+        background: #f8fafc;
+        transform: translateX(4px);
+        border-color: #cbd5e1;
+        box-shadow: 0 8px 18px -8px rgba(0,0,0,0.1);
+    }
+    .distance {
+        font-weight: 700;
+        color: #059669;
+    }
+
+    /* Status & DSA result */
+    #dsaResult, .status {
+        font-size: 0.8rem;
+        background: #f1f5f9;
+        padding: 10px;
+        border-radius: 20px;
+        margin-top: 10px;
+        line-height: 1.4;
+        color: #1f2937;
+    }
+
+    /* Algorithm selector pills */
+    .algorithm-select {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 12px 0 6px;
+    }
+    .algorithm-select label {
+        background: #eef2ff;
+        padding: 6px 14px;
+        border-radius: 40px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #1e40af;
+        border: 1px solid #c7d2fe;
+        transition: 0.2s;
+    }
+    .algorithm-select label:hover {
+        background: #e0e7ff;
+    }
+    input[type="radio"]:checked + label {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        border-color: #3b82f6;
+        color: white;
+        box-shadow: 0 2px 8px rgba(59,130,246,0.4);
+    }
+
+    /* DSA buttons row */
+    .dsa-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .dsa-buttons button {
+        flex: 1;
+        font-size: 0.75rem;
+        padding: 8px 6px;
+        border-radius: 40px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #1e293b;
+        font-weight: 600;
+    }
+    .dsa-buttons button:hover {
+        background: #f1f5f9;
+        border-color: #3b82f6;
+        color: #1e40af;
+    }
+
+    /* Performance block – trendy monospace */
+    #perfInfo {
+        background: #ecfdf5;
+        border-left: 4px solid #10b981;
+        border-radius: 20px;
+        padding: 10px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.7rem;
+        margin-top: 10px;
+        color: #065f46;
+    }
+
+    /* Map styling – light controls */
+    #map {
+        flex: 1;
+        height: 100%;
+        background: #eef2ff;
+    }
+    .leaflet-control-zoom a {
+        background: #ffffff !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
+    }
+    .leaflet-control-zoom a:hover {
+        background: #f8fafc !important;
+    }
+
+    /* Hazard score glow (subtle, but fun) */
+    @keyframes softPulse {
+        0% { text-shadow: 0 0 0px #f97316; }
+        50% { text-shadow: 0 0 4px #f97316; }
+        100% { text-shadow: 0 0 0px #f97316; }
+    }
+    #route-hazard {
+        font-weight: 800;
+        animation: softPulse 1.5s infinite;
+    }
+</style>
 </head>
 <body>
-    <div class="dashboard">
-        <div class="header"><h1>DRAS</h1><p style="color:#718096; font-size:0.9rem;">Disaster Response Assistance System</p></div>
-        
-        <div class="step-card active" id="card-epi">
-            <b>1. Set Epicenter</b><br><span style="font-size: 0.85rem; color: #718096;">Click map to define origin.</span>
+    
+<div class="dashboard">
+    <div class="header"><h1>EMERGE</h1><p>Multi‑Incident Emergency Response System</p></div>
+
+    <!-- City selector -->
+    <div class="card">
+        <label><strong>🏙️ Uttar Pradesh City</strong></label>
+        <select id="citySelect">
+            <option value="Lucknow">Lucknow</option>
+            <option value="Kanpur">Kanpur</option>
+            <option value="Varanasi">Varanasi</option>
+            <option value="Agra">Agra</option>
+            <option value="Noida">Noida</option>
+            <option value="Prayagraj">Prayagraj</option>
+            <option value="Meerut">Meerut</option>
+        </select>
+        <button id="updateCityBtn" class="primary" style="background:#2c5282;">🔄 Load City & Update Map</button>
+        <div id="emergencyContacts" class="emergency-numbers">🚨 Emergency numbers will appear</div>
+    </div>
+
+    <!-- Your Location (Three methods) -->
+    <div class="card">
+        <b>📍 Your Current Location</b>
+        <button id="getLocationBtn" class="secondary">📱 Use GPS (if allowed)</button>
+        <button id="getIPLocationBtn" class="warning">🌐 Auto IP Location (fallback)</button>
+        <div class="status" style="margin-top:8px;">Or enter manually:</div>
+        <div class="flex-row">
+            <input type="text" id="manualLat" placeholder="Latitude" value="26.8467">
+            <input type="text" id="manualLng" placeholder="Longitude" value="80.9462">
+            <button id="setManualLocationBtn" class="secondary">📍 Set</button>
+        </div>
+        <div id="locationStatus" class="status"></div>
+    </div>
+
+    <!-- Incident Type & Algorithm -->
+    <div class="card">
+        <b>🚨 Incident Type</b>
+        <select id="incidentTypeSelect">
+            <option value="earthquake">🌍 Earthquake</option>
+            <option value="road_accident">🚑 Road Accident</option>
+            <option value="storm">🌪️ Storm / Cyclone</option>
+            <option value="industrial">🏭 Industrial Accident</option>
+            <option value="nuclear">☢️ Nuclear Accident</option>
+            <option value="air_accident">✈️ Air Accident</option>
+            <option value="rail_accident">🚂 Rail Accident</option>
+        </select>
+        <div id="magnitudeDiv" style="margin-top:8px;">
+            <span>Earthquake Magnitude (only for quake): <span id="magValue">6.0</span></span>
             <input type="range" id="magnitude" min="3.0" max="9.0" step="0.5" value="6.0">
         </div>
-
-        <div class="step-card disabled" id="card-user">
-            <b>2. Set Your Location</b><br><span style="font-size: 0.85rem; color: #718096;">Click map to drop your pin.</span>
-        </div>
-
-        <button id="btn-analyze" style="display:none;" onclick="runAnalysis()">Generate Relief Plan</button>
-
-        <div class="results-section" id="results">
-            <b>Response Analysis</b>
-            <div class="result-item" style="border-left-color: var(--safe-green); margin-top: 10px;">
-                <strong>Dynamic Safe Zones (DSU):</strong> <span id="dsu-count">0</span>
+        <div style="margin-top:12px;">
+            <b>🧠 Routing Algorithm</b>
+            <div class="algorithm-select">
+                <label><input type="radio" name="algorithm" value="minmax" checked> Min‑Max Hazard (Safest)</label>
+                <label><input type="radio" name="algorithm" value="dijkstra"> Dijkstra (Shortest)</label>
+                <label><input type="radio" name="algorithm" value="astar"> A* (Fastest)</label>
             </div>
-            <div class="result-item" style="border-left-color: #ed8936;">
-                <strong>Route Hazard Score (Kadane):</strong> <span id="route-hazard">0</span>
-            </div>
+            <div class="status" style="font-size:0.75rem; margin-top:5px;">⚠️ Hazard score = max hazard along route (100=dangerous, 0=safe). Dijkstra/A* ignore hazards.</div>
         </div>
     </div>
 
-    <div id="map"></div>
+    <!-- Incident Location -->
+    <div class="card">
+        <b>📍 Incident Location (click on map)</b>
+        <div class="status" id="incidentStatus">Not set yet. Click on map after setting your location.</div>
+    </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map', {zoomControl: false}).setView([28.4089, 77.3178], 12);
-        L.control.zoom({position: 'topright'}).addTo(map);
+    <!-- Pre‑defined Incidents Card -->
+<div class="card">
+    <b>📍 Pre‑defined Incidents (for this city)</b>
+    <select id="defaultIncidentSelect">
+        <option value="">-- Select a default incident location --</option>
+    </select>
+    <button id="setDefaultIncidentBtn" class="secondary">📍 Set Incident from List</button>
+</div>
+    <!-- Nearby Incidents List (new) -->
+    <div class="card">
+        <b>⚠️ Incidents Near Your Location</b>
+        <div id="nearbyIncidentsList" class="status">Set your location to see nearby incidents.</div>
+    </div>
+
+    <!-- Advanced DSA Features Card -->
+    <div class="card">
+        <b>🧩 Advanced DSA Visualisations</b>
+        <div class="dsa-buttons">
+            <button id="showMSTBtn" class="info">🌲 MST (Kruskal)</button>
+            <button id="showArticulationBtn" class="info">🔴 Critical Nodes</button>
+            <button id="showTSPBtn" class="info">🗺️ Hospital Tour (TSP)</button>
+            <button id="connectivityBtn" class="info">🔗 Graph Connectivity</button>
+            <button id="compareAlgosBtn" class="info">⚖️ Compare Algorithms</button>
+        </div>
+        <div id="dsaResult" class="status" style="margin-top:6px;"></div>
+    </div>
+
+    <!-- Hospitals -->
+    <div class="card">
+        <b>🏥 Nearby Hospitals & Rescue Places</b>
+        <div id="hospitalsList" class="hospital-list">Select a city and set your location to see hospitals.</div>
+    </div>
+
+    <div class="card">
+    <b>📊 Analysis Results</b>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px;">
+        <span>🛡️ Safe Zones (DSU)</span>
+        <span style="font-weight: 800; color: #34d399;" id="dsu-count">0</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+        <span>⚠️ Hazard Score</span>
+        <span style="font-weight: 800; font-size: 1.2rem; color: #f97316;" id="route-hazard">-</span>
+        <span class="tooltip-info" title="Hazard score = maximum hazard along the chosen route. Lower is safer.">?</span>
+    </div>
+    <div id="perfInfo" class="status" style="margin-top: 10px;"></div>
+</div>
+</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let map;
+    let userMarker = null, incidentMarker = null;
+    let userLatLng = null, incidentLatLng = null;
+    let currentCity = "Lucknow";
+    let hospitalsList = [];
+    let hospitalMarkers = [];
+    let mapLayers = [];
+    let mstLayer = null, artLayer = null, tspLayer = null;
+
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView([28.4089, 77.3178], 12);
+        L.control.zoom({ position: 'topright' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        map.on('click', onMapClick);
+    }
 
-        let epicenter = null, userLoc = null, mapLayers = [], state = 1;
+    function onMapClick(e) {
+        if (!userLatLng) {
+            alert("Please set your current location first (GPS, IP, or manual).");
+            return;
+        }
+        if (incidentMarker) map.removeLayer(incidentMarker);
+        incidentMarker = L.marker(e.latlng, {
+            icon: L.divIcon({ html: '<div style="background:#e53e3e; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>' })
+        }).addTo(map);
+        incidentLatLng = e.latlng;
+        document.getElementById('incidentStatus').innerHTML = `✅ Incident at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+        if (hospitalsList.length) showHospitalsWithDistances();
+    }
 
-        const epiIcon = L.divIcon({className: '', html: '<div style="background:#e53e3e; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>'});
-        const userIcon = L.divIcon({className: '', html: '<div style="background:#3182ce; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>'});
-        const campIcon = L.divIcon({className: '', html: '<div style="background:white; width:14px; height:14px; border-radius:2px; border:3px solid #38a169;"></div>'});
+    // Manual location
+    function setManualLocation() {
+        let lat = parseFloat(document.getElementById('manualLat').value);
+        let lng = parseFloat(document.getElementById('manualLng').value);
+        if (isNaN(lat) || isNaN(lng)) { alert("Invalid coordinates"); return; }
+        userLatLng = { lat, lng };
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([lat, lng], {
+            icon: L.divIcon({ html: '<div style="background:#3182ce; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>' })
+        }).addTo(map);
+        map.setView([lat, lng], 14);
+        document.getElementById('locationStatus').innerHTML = `✅ Manual location: ${lat}, ${lng}`;
+        if (hospitalsList.length) showHospitalsWithDistances();
+        else loadHospitalsForCity(currentCity);
 
-        // Show Camps on Startup
-        fetch('/api/get_fixed_centers').then(r => r.json()).then(data => {
-            data.data.forEach(c => L.marker([c.lat, c.lng], {icon: campIcon}).addTo(map).bindPopup(c.name));
+        updateNearbyIncidents();
+    }
+
+
+    // GPS
+    function getCurrentLocation() {
+        if (!navigator.geolocation) {
+            document.getElementById('locationStatus').innerHTML = "❌ GPS not supported. Use IP or manual.";
+            return;
+        }
+        document.getElementById('locationStatus').innerHTML = "📍 Requesting GPS... (may take 5-10 seconds)";
+        let timeoutId;
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                clearTimeout(timeoutId);
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+                userLatLng = { lat, lng };
+                if (userMarker) map.removeLayer(userMarker);
+                userMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({ html: '<div style="background:#3182ce; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>' })
+                }).addTo(map);
+                map.setView([lat, lng], 14);
+                document.getElementById('locationStatus').innerHTML = `✅ GPS location: ${lat.toFixed(4)}, ${lng.toFixed(4)}<br><span style="font-size:0.8rem;">Accuracy: ±${accuracy.toFixed(0)}m</span>`;
+                if (hospitalsList.length) showHospitalsWithDistances();
+                else loadHospitalsForCity(currentCity);
+
+                updateNearbyIncidents();
+            },
+            error => {
+                clearTimeout(timeoutId);
+                let msg = "❌ GPS failed: ";
+                if (error.code === 1) msg += "Permission denied. Try IP location.";
+                else if (error.code === 2) msg += "Position unavailable. Try IP location.";
+                else if (error.code === 3) msg += "Request timeout. Try IP location.";
+                else msg += "Unknown error. Try IP location.";
+                document.getElementById('locationStatus').innerHTML = msg;
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+        timeoutId = setTimeout(() => {
+            document.getElementById('locationStatus').innerHTML = "⏱️ GPS timeout. Try IP location as fallback.";
+        }, 12000);
+    }
+
+    // IP location
+    function getIPLocation() {
+        document.getElementById('locationStatus').innerHTML = "🌐 Fetching location from IP...";
+        fetch('/api/ip_location', { method: 'GET', headers: { 'Accept': 'application/json' } })
+            .then(res => res.ok ? res.json() : Promise.reject())
+            .then(data => {
+                if (data.status === 'success') {
+                    userLatLng = { lat: data.lat, lng: data.lng };
+                    if (userMarker) map.removeLayer(userMarker);
+                    userMarker = L.marker([data.lat, data.lng], {
+                        icon: L.divIcon({ html: '<div style="background:#3182ce; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>' })
+                    }).addTo(map);
+                    map.setView([data.lat, data.lng], 12);
+                    document.getElementById('locationStatus').innerHTML = `✅ IP location (approx): ${data.lat.toFixed(3)}, ${data.lng.toFixed(3)}<br>City: ${data.city || 'Unknown'}`;
+                    if (hospitalsList.length) showHospitalsWithDistances();
+                    else loadHospitalsForCity(currentCity);
+                    updateNearbyIncidents();
+                } else {
+                    document.getElementById('locationStatus').innerHTML = `❌ IP location failed: ${data.message}`;
+                }
+            })
+            .catch(() => document.getElementById('locationStatus').innerHTML = "❌ IP service error. Try manual entry.");
+    }
+
+    // Load hospitals
+    function loadHospitalsForCity(city) {
+        fetch('/api/hospitals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: city })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.hospitals) hospitalsList = data.hospitals;
+            else hospitalsList = [];
+            hospitalMarkers.forEach(m => map.removeLayer(m));
+            hospitalMarkers = [];
+            hospitalsList.forEach(h => {
+                let m = L.marker([h.lat, h.lng], { icon: L.divIcon({ html: '🏥', className: 'hospital-icon' }) })
+                    .addTo(map)
+                    .bindPopup(`<b>${h.name}</b><br>📞 ${h.phone}`);
+                hospitalMarkers.push(m);
+            });
+            if (userLatLng) showHospitalsWithDistances();
+            else document.getElementById('hospitalsList').innerHTML = "<i>Set your location first to see distances</i>";
+            updateNearbyIncidents();
         });
+    }
 
-        map.on('click', e => {
-            if (state === 1) {
-                if(epicenter) map.removeLayer(epicenter);
-                epicenter = L.marker(e.latlng, {icon: epiIcon}).addTo(map);
-                document.getElementById('card-epi').classList.remove('active');
-                document.getElementById('card-user').classList.remove('disabled');
-                document.getElementById('card-user').classList.add('active');
-                state = 2;
-            } else if (state === 2 || state === 3) {
-                if(userLoc) map.removeLayer(userLoc);
-                userLoc = L.marker(e.latlng, {icon: userIcon}).addTo(map);
-                document.getElementById('card-user').classList.remove('active');
-                document.getElementById('btn-analyze').style.display = 'block';
-                state = 3;
+    function haversine(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+        // ---------- Nearby Incidents from default_incidents ----------
+    function updateNearbyIncidents() {
+        if (!userLatLng) return;
+        fetch(`/api/default_incidents/${currentCity}`)
+            .then(res => res.json())
+            .then(data => {
+                const incidents = data.incidents || [];
+                const nearby = [];
+                incidents.forEach(inc => {
+                    const dist = haversine(userLatLng.lat, userLatLng.lng, inc.lat, inc.lng);
+                    if (dist <= 20) { // radius 20 km
+                        nearby.push({...inc, distance: dist});
+                    }
+                });
+                nearby.sort((a,b) => a.distance - b.distance);
+                const container = document.getElementById('nearbyIncidentsList');
+                if (nearby.length === 0) {
+                    container.innerHTML = "✅ No incidents within 20 km of your location.";
+                } else {
+                    let html = `<strong>⚠️ ${nearby.length} incident(s) within 20 km:</strong><br>`;
+                    nearby.forEach(inc => {
+                        html += `• ${inc.name} (${inc.type.replace('_',' ')}) – ${inc.distance.toFixed(1)} km away<br>`;
+                    });
+                    container.innerHTML = html;
+                }
+            })
+            .catch(() => {
+                document.getElementById('nearbyIncidentsList').innerHTML = "⚠️ Could not load incidents. Ensure default_incidents.py exists.";
+            });
+    }
+
+    function showHospitalsWithDistances() {
+        if (!userLatLng) return;
+        if (!hospitalsList.length) {
+            document.getElementById('hospitalsList').innerHTML = "<i>No hospitals found for this city</i>";
+            return;
+        }
+        let withDist = hospitalsList.map(h => ({ ...h, distance: haversine(userLatLng.lat, userLatLng.lng, h.lat, h.lng) }));
+        withDist.sort((a,b) => a.distance - b.distance);
+        let html = `<strong>Nearest hospitals (from your location):</strong><br>`;
+        withDist.forEach(h => {
+            html += `<div class="hospital-item">
+                        <b>${h.name}</b><br>
+                        📍 Distance: <span class="distance">${h.distance.toFixed(2)} km</span><br>
+                        📞 <a href="tel:${h.phone}">${h.phone}</a><br>
+                        <button class="routeToHospitalBtn" data-lat="${h.lat}" data-lng="${h.lng}" data-name="${h.name}" style="margin-top:5px;">🚑 Get Route to this Hospital</button>
+                     </div>`;
+        });
+        document.getElementById('hospitalsList').innerHTML = html;
+        document.querySelectorAll('.routeToHospitalBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const lat = parseFloat(btn.dataset.lat);
+                const lng = parseFloat(btn.dataset.lng);
+                const name = btn.dataset.name;
+                routeToHospital(lat, lng, name);
+            });
+        });
+    }
+
+    async function routeToHospital(hospLat, hospLng, hospName) {
+        if (!userLatLng) { alert("Your location not set."); return; }
+        if (!incidentLatLng) { alert("Please click on the map to set the incident location."); return; }
+        const incidentType = document.getElementById('incidentTypeSelect').value;
+        let magnitude = parseFloat(document.getElementById('magnitude').value);
+        if (incidentType !== 'earthquake') magnitude = 1.0;
+        const algorithm = document.querySelector('input[name="algorithm"]:checked').value;
+        try {
+            const response = await fetch('/api/route_to_hospital', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    city: currentCity,
+                    incident_lat: incidentLatLng.lat,
+                    incident_lng: incidentLatLng.lng,
+                    magnitude: magnitude,
+                    user_lat: userLatLng.lat,
+                    user_lng: userLatLng.lng,
+                    hospital_lat: hospLat,
+                    hospital_lng: hospLng,
+                    algorithm: algorithm,
+                    incident_type: incidentType
+                })
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                mapLayers.forEach(l => map.removeLayer(l));
+                mapLayers = [];
+                if (incidentType === 'earthquake') {
+                    const mag = parseFloat(document.getElementById('magnitude').value);
+                    mapLayers.push(L.circle(incidentLatLng, { color: 'transparent', fillColor: '#e53e3e', fillOpacity: 0.35, radius: mag * 800 }).addTo(map));
+                    mapLayers.push(L.circle(incidentLatLng, { color: 'transparent', fillColor: '#ed8936', fillOpacity: 0.25, radius: mag * 1600 }).addTo(map));
+                    mapLayers.push(L.circle(incidentLatLng, { color: 'transparent', fillColor: '#ecc94b', fillOpacity: 0.15, radius: mag * 2500 }).addTo(map));
+                }
+                if (result.safest_route && result.safest_route.length > 0) {
+                    let routeLine = L.polyline(result.safest_route, { color: '#38a169', weight: 6, dashArray: '5,5' }).addTo(map);
+                    mapLayers.push(routeLine);
+                    map.fitBounds(routeLine.getBounds(), { padding: [50,50] });
+                }
+                document.getElementById('dsu-count').innerText = result.dsu_zones.length;
+                document.getElementById('route-hazard').innerText = result.hazard_score;
+                if (result.performance) {
+                    document.getElementById('perfInfo').innerHTML = `⚡ ${result.performance.algorithm} | ⏱️ ${result.performance.time_ms} ms | 📍 ${result.performance.nodes_visited} nodes | 🧠 ${result.performance.complexity}`;
+                }
+                alert(`Route to ${hospName} using ${algorithm.toUpperCase()} completed.\nHazard score: ${result.hazard_score} (lower is safer)`);
+            } else {
+                alert("Routing error: " + result.message);
+            }
+        } catch (err) {
+            alert("Server error: " + err);
+        }
+    }
+
+    function updateCity() {
+        currentCity = document.getElementById('citySelect').value;
+        fetch('/api/city_coords', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: currentCity })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                map.setView([data.lat, data.lng], 12);
+                document.getElementById('manualLat').value = data.lat;
+                document.getElementById('manualLng').value = data.lng;
             }
         });
+        fetch('/api/emergency_contacts')
+            .then(res => res.json())
+            .then(data => {
+                let html = '<strong>🚨 Emergency Numbers:</strong><br>';
+                for (const [name, num] of Object.entries(data)) {
+                    html += `${name}: <a href="tel:${num}" style="color:#c53030;">${num}</a> &nbsp;| `;
+                }
+                document.getElementById('emergencyContacts').innerHTML = html;
+            });
+        loadHospitalsForCity(currentCity);
+        loadDefaultIncidents(currentCity);
+        if (incidentMarker) map.removeLayer(incidentMarker);
+        incidentMarker = null;
+        incidentLatLng = null;
+        document.getElementById('incidentStatus').innerHTML = "Not set yet. Click on map after setting your location.";
+        if (mstLayer) map.removeLayer(mstLayer);
+        if (artLayer) map.removeLayer(artLayer);
+        if (tspLayer) map.removeLayer(tspLayer);
+        document.getElementById('dsaResult').innerHTML = "";
+    }
 
-        async function runAnalysis() {
-            const btn = document.getElementById('btn-analyze');
-            btn.innerText = "Processing..."; mapLayers.forEach(l => map.removeLayer(l)); mapLayers = [];
-
-            const mag = document.getElementById('magnitude').value;
-            const epiLL = epicenter.getLatLng();
-
-            mapLayers.push(L.circle(epiLL, {color: 'transparent', fillColor: '#e53e3e', fillOpacity: 0.35, radius: mag * 800}).addTo(map));
-            mapLayers.push(L.circle(epiLL, {color: 'transparent', fillColor: '#ed8936', fillOpacity: 0.25, radius: mag * 1600}).addTo(map));
-            mapLayers.push(L.circle(epiLL, {color: 'transparent', fillColor: '#ecc94b', fillOpacity: 0.15, radius: mag * 2500}).addTo(map));
-
-            try {
-                const response = await fetch('/api/analyze_situation', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ epi_lat: epiLL.lat, epi_lng: epiLL.lng, user_lat: userLoc.getLatLng().lat, user_lng: userLoc.getLatLng().lng, magnitude: mag })
+    // Load default incidents for the current city
+function loadDefaultIncidents(city) {
+    fetch(`/api/default_incidents/${city}`)
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('defaultIncidentSelect');
+            select.innerHTML = '<option value="">-- Select a default incident location --</option>';
+            if (data.status === 'success') {
+                data.incidents.forEach(inc => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(inc);
+                    option.textContent = `${inc.name} (${inc.type.replace('_', ' ')})`;
+                    select.appendChild(option);
                 });
-                const result = await response.json();
+            }
+        });
+}
 
-                if(result.status === 'success') {
-                    document.getElementById('results').style.display = 'block';
-                    document.getElementById('dsu-count').innerText = result.dsu_zones.length;
-                    document.getElementById('route-hazard').innerText = result.hazard_score;
+// Set incident from dropdown selection
+function setDefaultIncident() {
+    const select = document.getElementById('defaultIncidentSelect');
+    const selected = select.value;
+    if (!selected) return;
+    const inc = JSON.parse(selected);
+    // Place marker on map
+    if (incidentMarker) map.removeLayer(incidentMarker);
+    incidentMarker = L.marker([inc.lat, inc.lng], {
+        icon: L.divIcon({ html: '<div style="background:#e53e3e; width:18px; height:18px; border-radius:50%; border:3px solid white;"></div>' })
+    }).addTo(map);
+    incidentLatLng = { lat: inc.lat, lng: inc.lng };
+    map.setView([inc.lat, inc.lng], 14);
+    document.getElementById('incidentStatus').innerHTML = `✅ ${inc.name} | ${inc.type} | ${inc.magnitude ? 'Mag '+inc.magnitude : ''}`;
+    // Also set incident type dropdown and magnitude if applicable
+    document.getElementById('incidentTypeSelect').value = inc.type;
+    if (inc.type === 'earthquake' && inc.magnitude) {
+        document.getElementById('magnitude').value = inc.magnitude;
+        document.getElementById('magValue').innerText = inc.magnitude;
+        document.getElementById('magnitudeDiv').style.display = 'block';
+    } else {
+        document.getElementById('magnitudeDiv').style.display = 'none';
+    }
+    // Recalculate distances if user location is already set
+    if (userLatLng && hospitalsList.length) showHospitalsWithDistances();
+}
 
-                    if(result.safest_route.length > 0) {
-                        let route = L.polyline(result.safest_route, { color: '#3182ce', weight: 6, dashArray: '8, 8' }).addTo(map);
-                        mapLayers.push(route); map.fitBounds(route.getBounds(), {padding: [50, 50]});
-                    }
-                } else alert("Error: " + result.message);
-            } catch (err) { alert("Critical Server Error"); }
-            btn.innerText = "Generate Relief Plan";
+    // ---------- DSA Button Handlers ----------
+    function showMST() {
+        fetch('/api/mst', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: currentCity })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (mstLayer) map.removeLayer(mstLayer);
+                mstLayer = L.polyline(data.mst_coords, { color: '#00aa00', weight: 3, dashArray: '5,5' }).addTo(map);
+                document.getElementById('dsaResult').innerHTML = `🌲 MST drawn (total ${data.total_length_km} km, ${data.edges} edges)`;
+                map.fitBounds(mstLayer.getBounds());
+            } else alert("MST error");
+        });
+    }
+
+    function showArticulation() {
+        fetch('/api/articulation_points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: currentCity })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (artLayer) map.removeLayer(artLayer);
+                artLayer = L.layerGroup().addTo(map);
+                if (data.coordinates && data.coordinates.length) {
+                    data.coordinates.forEach(coord => {
+                        L.circleMarker([coord.lat, coord.lng], { color: 'red', radius: 8, fillOpacity: 0.7 }).bindPopup("Critical node").addTo(artLayer);
+                    });
+                    document.getElementById('dsaResult').innerHTML = `🔴 ${data.articulation_points.length} critical articulation points (red circles).`;
+                } else {
+                    document.getElementById('dsaResult').innerHTML = `✅ No articulation points.`;
+                }
+            } else alert("Articulation error");
+        });
+    }
+
+    function showTSP() {
+        if (!userLatLng) { alert("Set your location first."); return; }
+        fetch('/api/hospital_tour', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: currentCity, user_lat: userLatLng.lat, user_lng: userLatLng.lng })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (tspLayer) map.removeLayer(tspLayer);
+                tspLayer = L.polyline(data.tour_coords, { color: '#ff00ff', weight: 4, dashArray: '10,5' }).addTo(map);
+                map.fitBounds(tspLayer.getBounds());
+                document.getElementById('dsaResult').innerHTML = `🗺️ TSP tour length: ${data.total_distance_km} km, visits ${data.hospitals_visited} hospitals.`;
+            } else alert("TSP error");
+        });
+    }
+
+    function showConnectivity() {
+        fetch('/api/connectivity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city: currentCity })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById('dsaResult').innerHTML = `🔗 Graph has ${data.components} connected component(s). Total nodes: ${data.total_nodes}. Largest component: ${data.largest_component_size} nodes.`;
+            } else alert("Connectivity error");
+        });
+    }
+
+    async function compareAlgorithms() {
+        if (!userLatLng || !incidentLatLng) { alert("Set your location and incident point first."); return; }
+        if (!hospitalsList.length) { alert("No hospitals loaded."); return; }
+        const target = hospitalsList[0];
+        const incidentType = document.getElementById('incidentTypeSelect').value;
+        let magnitude = parseFloat(document.getElementById('magnitude').value);
+        if (incidentType !== 'earthquake') magnitude = 1.0;
+        let results = {};
+        for (let algo of ['dijkstra', 'astar', 'minmax']) {
+            const start = performance.now();
+            const res = await fetch('/api/route_to_hospital', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    city: currentCity,
+                    incident_lat: incidentLatLng.lat, incident_lng: incidentLatLng.lng,
+                    magnitude: magnitude,
+                    user_lat: userLatLng.lat, user_lng: userLatLng.lng,
+                    hospital_lat: target.lat, hospital_lng: target.lng,
+                    algorithm: algo,
+                    incident_type: incidentType
+                })
+            });
+            const data = await res.json();
+            const end = performance.now();
+            results[algo] = { time: (end - start).toFixed(2), hazard: data.hazard_score };
         }
-    </script>
+        document.getElementById('dsaResult').innerHTML = `
+            ⚖️ <b>Algorithm Comparison</b><br>
+            Dijkstra: ${results.dijkstra.time} ms, hazard ${results.dijkstra.hazard}<br>
+            A*: ${results.astar.time} ms, hazard ${results.astar.hazard}<br>
+            Min-Max Hazard: ${results.minmax.time} ms, hazard ${results.minmax.hazard}
+        `;
+    }
+
+    // Event listeners
+    document.getElementById('getLocationBtn').onclick = getCurrentLocation;
+    document.getElementById('getIPLocationBtn').onclick = getIPLocation;
+    document.getElementById('setManualLocationBtn').onclick = setManualLocation;
+    document.getElementById('updateCityBtn').onclick = updateCity;
+    document.getElementById('magnitude').addEventListener('input', e => document.getElementById('magValue').innerText = e.target.value);
+    document.getElementById('incidentTypeSelect').addEventListener('change', e => {
+        document.getElementById('magnitudeDiv').style.display = e.target.value === 'earthquake' ? 'block' : 'none';
+    });
+    document.getElementById('showMSTBtn').onclick = showMST;
+    document.getElementById('showArticulationBtn').onclick = showArticulation;
+    document.getElementById('showTSPBtn').onclick = showTSP;
+    document.getElementById('connectivityBtn').onclick = showConnectivity;
+    document.getElementById('compareAlgosBtn').onclick = compareAlgorithms;
+    document.getElementById('setDefaultIncidentBtn').onclick = setDefaultIncident;
+    window.onload = () => {
+        initMap();
+        updateCity();
+        document.getElementById('magnitudeDiv').style.display = 'block';
+    };
+</script>
 </body>
 </html>
