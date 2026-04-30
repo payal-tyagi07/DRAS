@@ -2,7 +2,7 @@
 
 **Multi‑Incident Emergency Response System** with advanced DSA visualisations, real‑time routing, and live deployment.
 
-![DRAS Demo](https://dras-gw0j.onrender.com) ![Python](https://img.shields.io/badge/Python-3.10-blue) ![Flask](https://img.shields.io/badge/Flask-2.0-red) ![Leaflet](https://img.shields.io/badge/Leaflet-Map-green)
+![DRAS Demo](https://img.shields.io/badge/status-live-green) ![Python](https://img.shields.io/badge/Python-3.10-blue) ![Flask](https://img.shields.io/badge/Flask-2.0-red) ![Leaflet](https://img.shields.io/badge/Leaflet-Map-green)
 
 ---
 
@@ -85,3 +85,4 @@ Every route displays:
 ---
 
 ## 📂 Project Structure
+
