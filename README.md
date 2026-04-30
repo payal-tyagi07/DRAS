@@ -1,4 +1,4 @@
-# 🚨 DRAS – Disaster Response Assistance System
+# 🚨EMERGE –  Emergency Management & Response Gateway
 
 **Multi‑Incident Emergency Response System** with advanced DSA visualisations, real‑time routing, and live deployment.
 
